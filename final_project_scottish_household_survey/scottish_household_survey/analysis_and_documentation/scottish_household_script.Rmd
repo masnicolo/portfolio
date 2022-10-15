@@ -1,0 +1,626 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+##loading the data and libraries 
+library(tidyverse)
+library(janitor)
+
+neighbourhood_rating <- read_csv("../raw_data/neighbourhood_rating.csv") %>% 
+  clean_names()
+green_spaces <- read_csv("../raw_data/green_spaces.csv") %>% 
+  clean_names()
+community_belonging <-read_csv("../raw_data/community_belonging.csv") %>% 
+  clean_names()
+
+neighbourhood_rating
+green_spaces
+community_belonging
+```
+
+#Great! No missing values in my data
+```{r}
+#checking missing values 
+green_spaces %>%
+  summarise(count = sum(is.na(green_spaces)))
+
+community_belonging %>% 
+  summarise(count = sum(is.na(community_belonging)))
+
+neighbourhood_rating %>% 
+  summarise(count = sum(is.na(neighbourhood_rating)))
+```
+#Importing this dataset containing council areas 
+
+```{r}
+#council areas codes data
+council_areas <- read_csv("../raw_data/967937c4-8d67-4f39-974f-fd58c4acfda5.csv") %>% 
+  clean_names()
+```
+
+```{r}
+#dropping variables I don't need 
+council_areas<- council_areas %>% 
+  select(ca, ca_name)
+
+#renaming feature_code column for joining
+council_areas %>% 
+  rename(feature_code = ca)
+#checking for missing values
+council_areas %>% 
+  summarise(count = sum(is.na(council_areas)))
+```
+
+```{r}
+#joining datasets to council area data
+green_spaces_joined <- inner_join(
+  green_spaces, council_areas, by = c("feature_code" = "ca"))
+community_belonging_joined <- inner_join(
+  community_belonging, council_areas, by = c("feature_code" = "ca"))
+neighbourhood_rating_joined <-  inner_join(
+  neighbourhood_rating, council_areas, by = c("feature_code" = "ca"))
+```
+
+
+
+```{r}
+#factoring green_spaces variables for plotting 
+green_spaces_joined %>% 
+  mutate(age = factor(age, levels = c("16-34 years", "35-64 years",
+                                      "65 years and over", "All")),
+         simd_quintiles = factor(simd_quintiles, levels = c("20% most deprived",
+                                                            "80% least deprived",
+                                                            "All")),
+         distance_to_nearest_green_or_blue_space = factor(
+           distance_to_nearest_green_or_blue_space, levels = c(
+             "A 5 minute walk or less",
+             "Within a 6-10 minute walk",
+             "An 11 minute walk or more",
+             "Don't Know"
+           )
+         )) 
+```
+
+#Are there certain groups that have local access to green space? 
+#Are there groups that are lacking access? 
+#What is the big difference in how far people have to walk to access their green space? 
+
+
+```{r}
+#plotting simd_quintiles for every year to see if there're significant 
+#differences for each year
+#Filtering out Simd_quintiles == "All"
+green_spaces_joined %>% 
+  filter(simd_quintiles != "All") %>% 
+ggplot(aes(x = distance_to_nearest_green_or_blue_space, fill = simd_quintiles))+
+  geom_bar(position = "dodge")+
+  facet_wrap(~date_code)
+```
+
+```{r}
+#simd quinitles and distance to green spaces
+green_spaces_joined %>%
+  filter(simd_quintiles != "All") %>% 
+    group_by(simd_quintiles, distance_to_nearest_green_or_blue_space) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = simd_quintiles, y = mean_percentage, fill = distance_to_nearest_green_or_blue_space))+
+  geom_col(position = "dodge")+
+   scale_y_continuous(labels = function(x) paste0(x*1, "%"))+
+  labs(
+    x = "SIMD quintiles",
+    y = "Mean value (%)",
+    title = "\nSIMD quintiles and distance to nearest green space",
+    fill = "Distance to nearest green space"
+  ) 
+
+ggsave("simd.png")
+```
+
+```{r}
+#type of tenure and distance to nearest green space
+green_spaces_joined %>% 
+ filter(type_of_tenure != "All") %>% 
+     group_by(type_of_tenure, distance_to_nearest_green_or_blue_space) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = type_of_tenure, y = mean_percentage, fill = distance_to_nearest_green_or_blue_space))+
+  geom_col(position = "dodge")+
+  theme(axis.text.x = element_text(angle = 90))+
+   scale_y_continuous(labels = function(x) paste0(x*1, "%"))+
+  labs(
+    x = "Type of tenure",
+    y = "Mean value (%)",
+    title = "\nType of tenure and distance to nearest green space",
+    fill = "Distance to nearest green space"
+  )
+
+ggsave("tenure.png")
+```
+
+```{r}
+#household type and distance to green spaces
+green_spaces_joined %>% 
+  filter(household_type != "All") %>% 
+    group_by(household_type, distance_to_nearest_green_or_blue_space) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = household_type, y = mean_percentage, fill = distance_to_nearest_green_or_blue_space))+
+  geom_col(position = "dodge")+
+   scale_y_continuous(labels = function(x) paste0(x*1, "%"))+
+  labs(
+    x = "Household type",
+    y = "Mean value (%)",
+    title = "\nHousehold type and distance to nearest green space",
+    fill = "Distance to nearest green space"
+  )
+
+ggsave("household.png")
+```
+
+```{r}
+#ethnicity and distance to green spaces 
+green_spaces_joined %>% 
+  filter(ethnicity != "All") %>% 
+    group_by(ethnicity, distance_to_nearest_green_or_blue_space) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = ethnicity, 
+             y = mean_percentage, 
+             fill = distance_to_nearest_green_or_blue_space))+
+  geom_col(position = "dodge")+
+    scale_y_continuous(labels = function(x) paste0(x*1, "%"))+
+  labs(
+    x = "Ethnicity",
+    y = "Mean value (%)",
+    title = "\nEthnicity and distance to nearest green space",
+    fill = "Distance to nearest green space"
+  )
+
+ggsave("ethnicity.png")
+```
+
+```{r}
+#gender and distance to green spaces
+green_spaces_joined %>% 
+ filter(gender != "All") %>% 
+    group_by(gender, distance_to_nearest_green_or_blue_space) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = gender, 
+             y = mean_percentage, 
+             fill = distance_to_nearest_green_or_blue_space))+
+  geom_col(position = "dodge")+
+    scale_y_continuous(labels = function(x) paste0(x*1, "%"))+
+  labs(
+    x = "Biological sex",
+    y = "Mean value (%)",
+    title = "\nBiological sex and distance to nearest green space",
+    fill = "Distance to nearest green space"
+  )
+
+ggsave("gender.png")
+```
+
+```{r}
+#urban/ rural areas and distance to green spaces
+green_spaces_joined %>% 
+ filter(urban_rural_classification != "All") %>% 
+    group_by(urban_rural_classification, distance_to_nearest_green_or_blue_space) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = urban_rural_classification, 
+             y = mean_percentage, 
+             fill = distance_to_nearest_green_or_blue_space))+
+  geom_col(position = "dodge")+
+    scale_y_continuous(labels = function(x) paste0(x*1, "%"))+
+  labs(
+    x = "Urban and rural ares",
+    y = "Mean value (%)",
+    title = "\nUrban and rural areas and distance to nearest green space",
+    fill = "Distance to nearest green space"
+  )
+
+ggsave("urban_rural.png")
+```
+
+#How do people in neighbourhoods with good access to green space differ from 
+#those who have no good access? Are there differences how they rate their 
+#neighbourhoods? Are there differences in how they rate their communities? 
+
+#neighbourhood
+```{r}
+#all walking distances to nearest green space
+neighbourhood_rating_joined %>% 
+  filter(walking_distance_to_nearest_greenspace != "All") %>% 
+    group_by(neighbourhood_rating, walking_distance_to_nearest_greenspace) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = neighbourhood_rating, 
+             y = mean_percentage, 
+             fill = walking_distance_to_nearest_greenspace))+
+  geom_col(position = "dodge") +
+    scale_y_continuous(labels = function(x) paste0(x*1, "%"))+
+  labs(
+    x = "Neighbourhood rating",
+    y = "Mean value (%)",
+    title = "\nNeighbourhood rating and distance to nearest green space",
+    fill = "Walking distance to nearest green space"
+  )
+
+ggsave("neighbourhood_distance.png")
+```
+```{r}
+#very good and fairly good rating and walking distance to green spaces 
+#hiding legend due to presentation space 
+neighbourhood_rating_joined %>% 
+  filter(walking_distance_to_nearest_greenspace != "All", 
+         neighbourhood_rating == "Very good" | 
+         neighbourhood_rating == "Fairly good") %>% 
+    group_by(neighbourhood_rating, walking_distance_to_nearest_greenspace) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = neighbourhood_rating, 
+             y = mean_percentage, 
+             fill = walking_distance_to_nearest_greenspace))+
+  geom_col(position = "dodge")+
+   theme(axis.text.y=element_blank(),
+      axis.ticks.y = element_blank())+
+  labs(
+    x = "Neighbourhood rating",
+    y = "Mean value",
+    title = "\nVery good/ fairly good rating and distance to nearest green space",
+    fill = "Walking distance to nearest green space"
+  )+
+  theme(legend.position="none")
+
+ggsave("Very_fairly_good_neighbourhood.png")
+```
+
+```{r}
+#Fairly good rating and walking distance to green spaces 
+neighbourhood_rating_joined %>% 
+  filter(walking_distance_to_nearest_greenspace != "All", 
+         neighbourhood_rating == "Fairly good") %>% 
+    group_by(neighbourhood_rating, walking_distance_to_nearest_greenspace) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = neighbourhood_rating, 
+             y = mean_percentage, 
+             fill = walking_distance_to_nearest_greenspace))+
+  geom_col(position = "dodge")+
+   theme(axis.text.y=element_blank(),
+      axis.ticks.y = element_blank())+
+  labs(
+    x = "Fairly good rating",
+    y = "Mean value",
+    title = "\nFairly good rating and distance to nearest green space",
+    fill = "Walking distance to nearest green space"
+  )
+
+
+```
+
+```{r}
+#fairly poor rating and walking distance to green spaces 
+neighbourhood_rating_joined %>% 
+  filter(walking_distance_to_nearest_greenspace != "All", 
+         neighbourhood_rating == "Fairly poor") %>% 
+    group_by(neighbourhood_rating, walking_distance_to_nearest_greenspace) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = neighbourhood_rating, 
+             y = mean_percentage, 
+             fill = walking_distance_to_nearest_greenspace))+
+  geom_col(position = "dodge")+
+   theme(axis.text.y=element_blank(),
+      axis.ticks.y = element_blank())+
+  labs(
+    x = "Fairly poor rating",
+    y = "Mean value",
+    title = "\nFairly poor rating and distance to nearest green space",
+    fill = "Walking distance to nearest green space"
+  )
+```
+
+```{r}
+#very poor/ fairly poor rating and walking distance to green spaces 
+neighbourhood_rating_joined %>% 
+  filter(walking_distance_to_nearest_greenspace != "All", 
+         neighbourhood_rating == "Very poor" |
+           neighbourhood_rating == "Fairly poor") %>% 
+    group_by(neighbourhood_rating, walking_distance_to_nearest_greenspace) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = neighbourhood_rating, 
+             y = mean_percentage, 
+             fill = walking_distance_to_nearest_greenspace))+
+  geom_col(position = "dodge")+
+  theme(axis.text.y=element_blank(),
+      axis.ticks.y = element_blank())+
+  labs(
+    x = "Neighbourhood rating",
+    y = "Mean value",
+    title = "\nVery poor/ fairly poor rating and distance to nearest green space",
+    fill = "Walking distance to nearest green space"
+  )
+ggsave("very_fairly_poor_rating.png")
+```
+#community
+```{r}
+#commuity belonging and walking distance to green spaces
+community_belonging_joined %>% 
+  filter(walking_distance_to_nearest_greenspace != "All") %>% 
+    group_by(community_belonging, walking_distance_to_nearest_greenspace) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = community_belonging, 
+             y = mean_percentage, 
+             fill = walking_distance_to_nearest_greenspace))+
+  geom_col(position = "dodge")+
+  theme(axis.text.x = element_text(angle = 90))+
+    scale_y_continuous(labels = function(x) paste0(x*1, "%"))+
+  labs(
+    x = "Community belonging",
+    y = "Mean value (%)",
+    title = "\nCommunity belonging and distance to nearest green space",
+    fill = "Walking distance to nearest green space"
+  )
+
+ggsave("community_belonging.png")
+```
+
+```{r}
+#not at all/ not very strong community and walking distance to green spaces 
+community_belonging_joined %>% 
+  filter(walking_distance_to_nearest_greenspace != "All", 
+         community_belonging == "Not at all strongly" |
+           community_belonging == "Not very strongly") %>% 
+    group_by(community_belonging, walking_distance_to_nearest_greenspace) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = community_belonging, 
+             y = mean_percentage, 
+             fill = walking_distance_to_nearest_greenspace))+
+  geom_col(position = "dodge")+
+  theme(axis.text.y=element_blank(),
+      axis.ticks.y = element_blank())+
+  labs(
+    x = "Community belonging",
+    y = "Mean value",
+    title = "\nNot at all/ not very strong community and distance to nearest green space",
+    fill = "Walking distance to nearest green space"
+  )
+ggsave("not_at_all_very_community.png")
+```
+
+```{r}
+#Fairly strongly community and walking distance to green spaces 
+community_belonging_joined %>% 
+  filter(walking_distance_to_nearest_greenspace != "All", 
+         community_belonging == "Fairly strongly") %>% 
+    group_by(community_belonging, walking_distance_to_nearest_greenspace) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = community_belonging, 
+             y = mean_percentage, 
+             fill = walking_distance_to_nearest_greenspace))+
+  geom_col(position = "dodge")+
+  theme(axis.text.y=element_blank(),
+      axis.ticks.y = element_blank())+
+  labs(
+    x = "Fairly strong community",
+    y = "Mean value",
+    title = "\nFairly strong community and distance to nearest green space",
+    fill = "Walking distance to nearest green space"
+  )
+```
+
+```{r}
+#not very strong community and walking distance to green spaces 
+community_belonging_joined %>% 
+  filter(walking_distance_to_nearest_greenspace != "All", 
+         community_belonging == "Not very strongly") %>% 
+    group_by(community_belonging, walking_distance_to_nearest_greenspace) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = community_belonging, 
+             y = mean_percentage, 
+             fill = walking_distance_to_nearest_greenspace))+
+  geom_col(position = "dodge")+
+  theme(axis.text.y=element_blank(),
+      axis.ticks.y = element_blank())+
+  labs(
+    x = "Not very strong community",
+    y = "Mean value",
+    title = "\nNot very strong community and distance to nearest green space",
+    fill = "Walking distance to nearest green space"
+  )
+```
+
+```{r}
+#very/ fairly strong community and walking distance to green spaces 
+#hiding legend due to presentation space
+community_belonging_joined %>% 
+  filter(walking_distance_to_nearest_greenspace != "All", 
+         community_belonging == "Very strongly"|
+           community_belonging == "Fairly strongly") %>% 
+    group_by(community_belonging, walking_distance_to_nearest_greenspace) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = community_belonging, 
+             y = mean_percentage, 
+             fill = walking_distance_to_nearest_greenspace))+
+  geom_col(position = "dodge")+
+  theme(axis.text.y=element_blank(),
+      axis.ticks.y = element_blank())+
+  labs(
+    x = "Community belonging",
+    y = "Mean value",
+    title = "\nVery/ fairly strong community and distance to nearest green space",
+    fill = "Walking distance to nearest green space"
+  )+
+  theme(legend.position="none")
+ggsave("very_fairly_strong_community.png")
+```
+
+##interestngly we can say that communities with higher community belonging are 
+#closer to a green space. There is probably a correlation between community 
+#rating and neighbourhood rating
+
+#time series ~ HOW DOES GREEN SPACE ACCESS CHANGE OVER TIME? 
+
+
+```{r}
+#5 minute and 11 minute or more walk over time 
+green_spaces_joined %>% 
+  filter(distance_to_nearest_green_or_blue_space == "A 5 minute walk or less" |
+           distance_to_nearest_green_or_blue_space == "An 11 minute walk or more") %>% 
+    group_by(date_code, distance_to_nearest_green_or_blue_space) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = date_code, 
+             y = mean_percentage, 
+             colour = distance_to_nearest_green_or_blue_space))+
+   geom_point()+
+  geom_line()
+
+```
+
+```{r}
+#11 minute walk over time 
+green_spaces_joined %>% 
+  filter(distance_to_nearest_green_or_blue_space == "An 11 minute walk or more") %>% 
+    group_by(date_code, distance_to_nearest_green_or_blue_space) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = date_code, 
+             y = mean_percentage, 
+             colour = distance_to_nearest_green_or_blue_space))+
+   geom_point()+
+  geom_line()
+```
+
+```{r}
+#5 minute walk over time 
+green_spaces_joined %>% 
+  filter(distance_to_nearest_green_or_blue_space == "A 5 minute walk or less") %>% 
+    group_by(date_code, distance_to_nearest_green_or_blue_space) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = date_code, 
+             y = mean_percentage, 
+             colour = distance_to_nearest_green_or_blue_space))+
+   geom_point()+
+  geom_line()
+```
+
+
+```{r}
+#6-10 minute walk over time 
+green_spaces_joined %>% 
+  filter(distance_to_nearest_green_or_blue_space == "Within a 6-10 minute walk") %>% 
+    group_by(date_code, distance_to_nearest_green_or_blue_space) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = date_code, 
+             y = mean_percentage, 
+             colour = distance_to_nearest_green_or_blue_space))+
+   geom_point()+
+  geom_line()
+```
+
+
+```{r}
+#All walks over time excluding "All"
+green_spaces_joined %>% 
+  filter(distance_to_nearest_green_or_blue_space != "All") %>% 
+    group_by(date_code, distance_to_nearest_green_or_blue_space) %>% 
+    summarise(mean_percentage = mean(value)) %>% 
+  ggplot(aes(x = date_code, 
+             y = mean_percentage, 
+             colour = distance_to_nearest_green_or_blue_space))+
+  geom_point()+
+  geom_line()
+```
+```{r}
+#aggregate response data
+aggregate_responses <- read_csv("../raw_data/shs_aggregate_responses (1).csv")
+```
+```{r}
+aggregate_responses %>% 
+  summarise(count = sum(is.na(aggregate_responses)))
+```
+```{r}
+#columns containing missing values
+apply(aggregate_responses, 2, anyNA)
+```
+
+#Ok I have decided to leave the Na values as they are. I'm not sure if imputing them would change the results of my analysis that much. Or at least the analysis wouldn't contain the original data. 
+
+```{r}
+#creating dummy variables for logistic regression analysis 
+aggregate_responses_dummies <- aggregate_responses %>% 
+  select(community_belonging, neighbourhood_rating, distance_to_nearest_green_space, satisfaction_with_nearest_green_space, 
+         age, gender, economic_status, household_size, highest_education_level) %>% 
+fastDummies::dummy_cols(select_columns = "neighbourhood_rating", remove_first_dummy = TRUE, remove_selected_columns = TRUE) %>% 
+  fastDummies::dummy_cols(select_columns = "community_belonging", remove_first_dummy = TRUE, remove_selected_columns = TRUE) %>% fastDummies::dummy_cols(select_columns = "distance_to_nearest_green_space", remove_first_dummy = TRUE, remove_selected_columns = TRUE) %>% 
+  fastDummies::dummy_cols(select_columns = "satisfaction_with_nearest_green_space", remove_first_dummy = TRUE, remove_selected_columns = TRUE) %>% 
+  fastDummies::dummy_cols(select_columns = "age", remove_first_dummy = TRUE, remove_selected_columns = TRUE) %>% 
+  fastDummies::dummy_cols(select_columns = "gender", remove_first_dummy = TRUE, remove_selected_columns = TRUE) %>% 
+  fastDummies::dummy_cols(select_columns = "economic_status", remove_first_dummy = TRUE, remove_selected_columns = TRUE) %>% 
+  fastDummies::dummy_cols(select_columns = "highest_education_level", remove_first_dummy = TRUE, remove_selected_columns = TRUE)
+
+#using clean names
+aggregate_responses_dummies <- aggregate_responses_dummies %>% 
+  clean_names()
+```
+
+#The ideal model for this type of data would be a logistic regression model as I have a dichotomous variables (1, 0)
+
+#After playing a bit with the model and the data, this is the best model as I have a lower AIC (47265)
+```{r}
+model5c <- glm(formula = neighbourhood_rating_very_good ~ community_belonging_very_strongly+
+                satisfaction_with_nearest_green_space_very_satisfied+
+                highest_education_level_standard_grade_or_equiv_svq_level_1_or_2+
+                community_belonging_fairly_strongly,
+              data = aggregate_responses_dummies, family = binomial(link = "logit"))
+
+summary(model5c)
+```
+```{r}
+#installing sjPlot to save my model into a file for presentation 
+library(sjPlot)
+
+
+sjPlot::tab_model(model5c)
+
+ggsave("model.png")
+```
+
+
+```{r}
+model6c <- glm(formula = neighbourhood_rating_very_good ~ community_belonging_not_very_strongly+
+                 satisfaction_with_nearest_green_space_very_satisfied+
+                 highest_education_level_standard_grade_or_equiv_svq_level_1_or_2+
+                 community_belonging_fairly_strongly,
+              data = aggregate_responses_dummies, family = binomial(link = "logit"))
+
+summary(model6c)
+```
+
+```{r}
+#trying anova to test which of the two models fits the data better
+anova(model5c, model6c, test = "Chisq")
+```
+#After playing a bit with the model and the data, this is the best model, model5c is the best model as I have a lower AIC (47265)
+
+```{r}
+#adding predicted probabilities
+library(modelr)
+neighbourhood_rating_4_pred <- aggregate_responses_dummies %>% 
+  add_predictions(model5c, type = "response")
+neighbourhood_rating_4_pred
+```
+
+
+
+```{r}
+library(pROC)
+roc_obj_4_pred <- neighbourhood_rating_4_pred %>% 
+  roc(response = neighbourhood_rating_very_good, predictor = pred)
+
+roc_curve <- ggroc(data = roc_obj_4_pred, legacy.axes = TRUE)+
+  coord_fixed()+
+  ylab("sensitivity (True Positive Rate)")+
+  xlab("1-specificity (True Negative Rate)")
+
+roc_curve
+```
+```{r}
+#calculating the area under the curve
+auc(roc_obj_4_pred)
+```
+#Area under the curve of 0.7282. This makes our prediction as "good". 
