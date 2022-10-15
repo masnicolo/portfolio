@@ -1,0 +1,120 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(lubridate)
+hb_agesex <- read_csv("raw_data/covid_raw_data/hospital_admissions_hb_agesex_20220302.csv") %>% 
+  clean_names
+hb_agesex
+```
+
+
+
+
+```{r}
+hb_agesex <- hb_agesex %>%
+  mutate(week_ending = mdy(week_ending))
+
+hb_agesex
+```
+
+```{r}
+hb_agesex %>% 
+  ggplot(aes(x = week_ending))+
+  geom_bar()
+```
+
+```{r}
+hb_simd <- read_csv("raw_data/covid_raw_data/hospital_admissions_hb_simd_20220302.csv") %>% 
+  clean_names()
+hb_simd
+```
+
+```{r}
+hb_simd %>% 
+  distinct() %>% 
+  count(WeekEnding)
+```
+
+S92000003 health scotland board code
+
+left join
+
+
+```{r}
+hb_agesex
+hb_simd
+hb_speciality <- read_csv("raw_data/covid_raw_data/hospital_admissions_hb_specialty_20220302.csv") %>% 
+  clean_names()
+read_csv("raw_data/covid_raw_data/hospital_admissions_hscp_agesex_20220302.csv") %>% 
+  clean_names()
+read_csv("raw_data/covid_raw_data/hospital_admissions_hscp_simd_20220302.csv") %>% 
+  clean_names()
+read_csv("raw_data/covid_raw_data/hospital_admissions_hscp_specialty_20220302.csv") %>% 
+  clean_names()
+```
+
+```{r}
+inner_join()
+```
+
+```{r}
+hb_speciality
+```
+
+```{r}
+hb_agesex
+```
+```{r}
+hb_agesex %>% 
+  ggplot(aes(x = week_ending)
+```
+
+
+
+```{r}
+hb_agesex %>% 
+  distinct(hb)
+```
+```{r}
+hb_simd %>% 
+  distinct(hb)
+
+hb_speciality %>% 
+  distinct(hb)
+
+hb_agesex %>% 
+  distinct(hb)
+```
+
+```{r}
+hb_agesex %>% 
+  distinct(week_ending)
+
+hb_simd %>% 
+  distinct(week_ending)
+
+hb_speciality %>% 
+  distinct(week_ending)
+```
+
+the week ends every Sunday, all the HB tables have week ending in common. Starts from 5-01-2020 to 20-02-2022. 
+
+
+```{r}
+hb_agesex %>% 
+ggplot(aes(x = week_ending, y = number_admissions)) +
+  geom_line()
+```
+
+```{r}
+left_join(hb_agesex, hb_simd, by = "hb")
+```
+
+library(dplyr)
+ left_join(x, y, by='Flag') %>%
+                left_join(., z, by='Flag') 
